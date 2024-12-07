@@ -1,0 +1,9 @@
+@font-face {
+  font-family: 'Woovebox';
+  src: url('../assets/WooveboxSegment7Standard.otf') format('opentype');
+}
+
+.seven-segment {
+  font-family: 'Woovebox', monospace;
+  letter-spacing: 0.1em;
+} 
