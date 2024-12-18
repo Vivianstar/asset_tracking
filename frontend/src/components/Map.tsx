@@ -197,11 +197,17 @@ const Map: React.FC<MapProps> = ({ routes, onNewRoute, onRouteComplete }) => {
         // Create new marker if it doesn't exist
         if (!markerStatesRef.current[update.route_id]) {
           const lastWaypoint = route.waypoints[route.waypoints.length - 1] || route.start_point;
-          const marker = createDeliveryMarker(route, lastWaypoint, map.current!);
-          markerStatesRef.current[update.route_id] = {
-            marker,
-            targetPosition: newPosition
-          };
+          // Convert RoutePoint to coordinate tuple if needed
+          const position: [number, number] = Array.isArray(lastWaypoint) 
+            ? lastWaypoint as [number, number]
+            : [lastWaypoint.longitude, lastWaypoint.latitude];
+          const marker = createDeliveryMarker(route, position, map.current!);
+          if (marker) {
+            markerStatesRef.current[update.route_id] = {
+              marker,
+              targetPosition: newPosition
+            };
+          }
         } else {
           // Update target position instead of directly setting marker position
           markerStatesRef.current[update.route_id].targetPosition = newPosition;
@@ -265,10 +271,12 @@ const Map: React.FC<MapProps> = ({ routes, onNewRoute, onRouteComplete }) => {
           ? [lastWaypoint.longitude, lastWaypoint.latitude]
           : route.start_point;
         const marker = createDeliveryMarker(route, initialPosition, map.current!);
-        markerStatesRef.current[route.id] = {
-          marker,
-          targetPosition: initialPosition
-        };
+        if (marker) {
+          markerStatesRef.current[route.id] = {
+            marker,
+            targetPosition: initialPosition
+          };
+        }
       } else {
         const markerState = markerStatesRef.current[route.id];
         const marker = markerState.marker;
@@ -318,60 +326,29 @@ const Map: React.FC<MapProps> = ({ routes, onNewRoute, onRouteComplete }) => {
     routeSourcesRef.current = [];
     startEndMarkersRef.current = {};
 
+    console.log("routes", routes);
     // Add new sources and layers for each route
     routes.forEach(route => {
       if (route.status === 'completed') return; // Skip completed routes
       
       const sourceId = `route-${route.id}`;
       routeSourcesRef.current.push(sourceId);
-
-      // Add source if it doesn't exist
-      if (!map.current?.getSource(sourceId)) {
-        map.current?.addSource(sourceId, {
-          type: 'geojson',
-          data: {
-            type: 'Feature',
-            properties: {},
-            geometry: {
-              type: 'LineString',
-              coordinates: route.coordinates
-            }
-          }
-        });
+      
+      try {
+        if (!map.current) {
+          throw new Error('Map not initialized');
+        }
+        
+        const success = addRouteToMap(route, map.current, sourceId);
+        if (success) {
+          console.log('Successfully added route:', route.id);
+        } else {
+          console.error('Failed to add route:', route.id);
+        }
+      } catch (error) {
+        console.error('Error in route addition process:', route.id, error);
       }
-
-      // Add layer if it doesn't exist
-      if (!map.current?.getLayer(sourceId)) {
-        map.current?.addLayer({
-          id: sourceId,
-          type: 'line',
-          source: sourceId,
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round'
-          },
-          paint: {
-            'line-color': route.color,
-            'line-width': 3,
-            'line-opacity': route.status === 'completed' ? 0.5 : 1
-          }
-        });
-      }
-
-      // Add start/end markers
-      const startMarker = new mapboxgl.Marker({ color: route.color })
-        .setLngLat(route.start_point)
-        .setPopup(new mapboxgl.Popup().setText(route.start_location || 'Start'))
-        .addTo(map.current!);
-
-      const endMarker = new mapboxgl.Marker({ color: route.color })
-        .setLngLat(route.end_point)
-        .setPopup(new mapboxgl.Popup().setText(route.end_location || 'End'))
-        .addTo(map.current!);
-
-      startEndMarkersRef.current[route.id] = { start: startMarker, end: endMarker };
     });
-    console.log("start animation", animationFrameRef.current);
     // Start animation
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -379,34 +356,132 @@ const Map: React.FC<MapProps> = ({ routes, onNewRoute, onRouteComplete }) => {
     animationFrameRef.current = requestAnimationFrame(animate);
   };
 
-  const createDeliveryMarker = (route: Route, position: [number, number], map: mapboxgl.Map) => {
-    const el = document.createElement('div');
-    el.className = 'delivery-vehicle';
-    el.style.backgroundColor = route.color;
-    el.style.width = '12px';
-    el.style.height = '12px';
-    el.style.borderRadius = '50%';
-    el.style.border = '2px solid white';
+  const createDeliveryMarker = (
+    route: Route, 
+    position: [number, number], 
+    map: mapboxgl.Map
+  ) => {
+    try {
+      // Validate coordinates
+      if (!position || position.length !== 2 || position.some(coord => !Number.isFinite(coord))) {
+        console.warn('Skipping marker creation - Invalid coordinates:', position);
+        return null;
+      }
 
-    
-    const popup = new mapboxgl.Popup({ 
-      offset: 10,
-      closeButton: false,
-      closeOnClick: false,
-    }).setHTML(`
-      <div style="background-color: ${route.color}CC; padding: 10px; border-radius: 18px;">
-        <div style="color: white; font-size: 0.75rem;">Route ${String(route.id).substring(0,2)}</div>
-      </div>
-    `);
-    
-    const marker = new mapboxgl.Marker(el)
-      .setLngLat(position)
-      .setPopup(popup)
-      .addTo(map);
+      const el = document.createElement('div');
+      el.className = 'delivery-vehicle';
+      el.style.backgroundColor = route.color;
+      el.style.width = '12px';
+      el.style.height = '12px';
+      el.style.borderRadius = '50%';
+      el.style.border = '2px solid white';
+
+      const popup = new mapboxgl.Popup({ 
+        offset: 10,
+        closeButton: false,
+        closeOnClick: false,
+      }).setHTML(`
+        <div style="background-color: ${route.color}CC; padding: 10px; border-radius: 18px;">
+          <div style="color: white; font-size: 0.75rem;">Route ${String(route.id).substring(0,2)}</div>
+        </div>
+      `);
       
-    marker.togglePopup();
-    
-    return marker;
+      const marker = new mapboxgl.Marker(el)
+        .setLngLat(position)
+        .setPopup(popup)
+        .addTo(map);
+        
+      marker.togglePopup();
+      
+      return marker;
+    } catch (error) {
+      console.warn('Error creating delivery marker:', error);
+      return null;
+    }
+  };
+
+  const addRouteToMap = (route: Route, map: mapboxgl.Map, sourceId: string) => {
+    try {
+      // Add source if it doesn't exist
+      if (!map.getSource(sourceId)) {
+        console.log(`Adding source for route ${route.id}`);
+        try {
+          map.addSource(sourceId, {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'LineString',
+                coordinates: route.coordinates
+              }
+            }
+          });
+          console.log(`Successfully added source for route ${route.id}`);
+        } catch (sourceError) {
+          console.error(`Error adding source for route ${route.id}:`, sourceError);
+          throw sourceError;
+        }
+      }
+
+      // Add layer if it doesn't exist
+      if (!map.getLayer(sourceId)) {
+        console.log(`Adding layer for route ${route.id}`);
+        try {
+          map.addLayer({
+            id: sourceId,
+            type: 'line',
+            source: sourceId,
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': route.color,
+              'line-width': 3,
+              'line-opacity': route.status === 'completed' ? 0.5 : 1
+            }
+          });
+          console.log(`Successfully added layer for route ${route.id}`);
+        } catch (layerError) {
+          console.error(`Error adding layer for route ${route.id}:`, layerError);
+          throw layerError;
+        }
+      }
+
+      // Add start/end markers
+      console.log(`Adding markers for route ${route.id}`);
+      try {
+        // Validate start and end points
+        if (!route.start_point?.every(coord => !isNaN(coord)) || 
+            !route.end_point?.every(coord => !isNaN(coord))) {
+          throw new Error('Invalid start or end coordinates');
+        }
+
+        const startMarker = new mapboxgl.Marker({ color: route.color })
+          .setLngLat(route.start_point)
+          .setPopup(new mapboxgl.Popup().setText('Start'))
+          .addTo(map);
+
+        const endMarker = new mapboxgl.Marker({ color: route.color })
+          .setLngLat(route.end_point)
+          .setPopup(new mapboxgl.Popup().setText('End'))
+          .addTo(map);
+
+        startEndMarkersRef.current[route.id] = { start: startMarker, end: endMarker };
+        console.log(`Successfully added markers for route ${route.id}`);
+      } catch (markerError) {
+        console.error(`Error adding markers for route ${route.id}:`, markerError);
+        throw markerError;
+      }
+
+      console.log(`Route ${route.id} successfully added with all components`);
+      return true;
+    } catch (error) {
+      console.error(`Fatal error adding route ${route.id}:`, error);
+      cleanupRoute(route.id);
+      return false;
+    }
   };
 
   return <div ref={mapContainer} className="w-full h-full" />;
