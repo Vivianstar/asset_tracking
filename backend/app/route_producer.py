@@ -88,7 +88,7 @@ class RouteCoordinateProducer:
 
                 # Flush messages and wait
                 self.producer.flush()
-                time.sleep(2)
+                time.sleep(1)
 
         except KeyboardInterrupt:
             logger.info("Stopping coordinate producer")

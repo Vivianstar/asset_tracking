@@ -5,7 +5,7 @@ import threading
 import asyncio
 import logging
 import queue
-
+import time
 logger = logging.getLogger(__name__)
 
 class RouteCoordinateConsumer:
@@ -26,7 +26,7 @@ class RouteCoordinateConsumer:
         def consume():
             try:
                 while True:
-                    msg = self.consumer.poll(1.0)
+                    msg = self.consumer.poll(0.3)
                     if msg is None:
                         continue
                     if msg.error():

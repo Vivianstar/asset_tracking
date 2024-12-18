@@ -402,6 +402,21 @@ const Map: React.FC<MapProps> = ({ routes, onNewRoute, onRouteComplete }) => {
 
   const addRouteToMap = (route: Route, map: mapboxgl.Map, sourceId: string) => {
     try {
+      // Validate and clean color value
+      let validColor = route.color;
+      
+      // If color contains multiple hex codes, take the first one
+      if (route.color.includes('#', 1)) {
+        validColor = route.color.split('#')[1];
+        validColor = '#' + validColor;
+      }
+      
+      // Ensure it's a valid 6-digit hex color
+      if (!/^#[0-9A-F]{6}$/i.test(validColor)) {
+        console.warn(`Invalid color format for route ${route.id}, defaulting to #000000`);
+        validColor = '#000000';
+      }
+
       // Add source if it doesn't exist
       if (!map.getSource(sourceId)) {
         console.log(`Adding source for route ${route.id}`);
@@ -424,7 +439,7 @@ const Map: React.FC<MapProps> = ({ routes, onNewRoute, onRouteComplete }) => {
         }
       }
 
-      // Add layer if it doesn't exist
+      // Add layer with validated color
       if (!map.getLayer(sourceId)) {
         console.log(`Adding layer for route ${route.id}`);
         try {
@@ -437,7 +452,7 @@ const Map: React.FC<MapProps> = ({ routes, onNewRoute, onRouteComplete }) => {
               'line-cap': 'round'
             },
             paint: {
-              'line-color': route.color,
+              'line-color': validColor,
               'line-width': 3,
               'line-opacity': route.status === 'completed' ? 0.5 : 1
             }
@@ -449,30 +464,32 @@ const Map: React.FC<MapProps> = ({ routes, onNewRoute, onRouteComplete }) => {
         }
       }
 
-      // Add start/end markers
-      console.log(`Adding markers for route ${route.id}`);
-      try {
-        // Validate start and end points
-        if (!route.start_point?.every(coord => !isNaN(coord)) || 
-            !route.end_point?.every(coord => !isNaN(coord))) {
-          throw new Error('Invalid start or end coordinates');
+      // Add start/end markers only if they don't exist for this route
+      if (!startEndMarkersRef.current[route.id]) {
+        console.log(`Adding markers for route ${route.id}`);
+        try {
+          // Validate start and end points
+          if (!route.start_point?.every(coord => !isNaN(coord)) || 
+              !route.end_point?.every(coord => !isNaN(coord))) {
+            throw new Error('Invalid start or end coordinates');
+          }
+
+          const startMarker = new mapboxgl.Marker({ color: validColor })
+            .setLngLat(route.start_point)
+            .setPopup(new mapboxgl.Popup().setText('Start'))
+            .addTo(map);
+
+          const endMarker = new mapboxgl.Marker({ color: validColor })
+            .setLngLat(route.end_point)
+            .setPopup(new mapboxgl.Popup().setText('End'))
+            .addTo(map);
+
+          startEndMarkersRef.current[route.id] = { start: startMarker, end: endMarker };
+          console.log(`Successfully added markers for route ${route.id}`);
+        } catch (markerError) {
+          console.error(`Error adding markers for route ${route.id}:`, markerError);
+          throw markerError;
         }
-
-        const startMarker = new mapboxgl.Marker({ color: route.color })
-          .setLngLat(route.start_point)
-          .setPopup(new mapboxgl.Popup().setText('Start'))
-          .addTo(map);
-
-        const endMarker = new mapboxgl.Marker({ color: route.color })
-          .setLngLat(route.end_point)
-          .setPopup(new mapboxgl.Popup().setText('End'))
-          .addTo(map);
-
-        startEndMarkersRef.current[route.id] = { start: startMarker, end: endMarker };
-        console.log(`Successfully added markers for route ${route.id}`);
-      } catch (markerError) {
-        console.error(`Error adding markers for route ${route.id}:`, markerError);
-        throw markerError;
       }
 
       console.log(`Route ${route.id} successfully added with all components`);
