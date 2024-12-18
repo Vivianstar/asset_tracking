@@ -11,16 +11,6 @@ const api = axios.create({
 });
 
 export const apiService = {
-  async getRoutes() {
-    try {
-      const response = await api.get('/routes');
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching routes:', error);
-      return [];
-    }
-  },
-
   async getMetrics() {
     try {
       const response = await api.get('/metrics');
@@ -84,6 +74,16 @@ export const apiService = {
       return response.data;
     } catch (error) {
       console.error('Error fetching new route:', error);
+      throw error;
+    }
+  },
+
+  async getRouteCoordinates(routeId: string) {
+    try {
+      const response = await api.get(`/route/${routeId}/coordinates`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching route coordinates:', error);
       throw error;
     }
   }

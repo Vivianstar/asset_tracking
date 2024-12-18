@@ -131,18 +131,16 @@ const App: React.FC = () => {
     };
   }, []);
 
+
   useEffect(() => {
     const loadInitialData = async () => {
       try {
         setLoading(true);
         setError(null);
         
-        const [routesData, metricsData] = await Promise.all([
-          apiService.getRoutes(),
+        const [metricsData] = await Promise.all([
           apiService.getMetrics(),
         ]);
-        console.log('Received routes data:', routesData);
-        setRoutes(routesData);
         setMetrics(metricsData);
       } catch (err) {
         console.error('Error loading data:', err);
@@ -165,16 +163,27 @@ const App: React.FC = () => {
 
   const handleRouteComplete = async (routeId: string) => {
     try {
-      // Get a new route from the backend
-      const newRoute = await apiService.getNewRoute();
-      
-      // Update routes array - remove completed route and add new one
-      setRoutes(prevRoutes => {
-        const updatedRoutes = prevRoutes.filter(r => r.id !== routeId);
-        return [...updatedRoutes, newRoute];
-      });
+      const updatedRoutes = routes.filter(r => r.id !== routeId);
+      setRoutes(updatedRoutes);
     } catch (error) {
-      console.error('Error getting new route:', error);
+      console.error('Error completing route:', error);
+    }
+  };
+
+  const handleNewRoute = async (routeId: string) => {
+    try {
+      // Check if route already exists in state
+      if (routes.some(r => r.id === routeId)) {
+        console.log('Route already exists:', routeId);
+        return;
+      }
+
+      console.log('Fetching new route:', routeId);
+      const newRoute = await apiService.getRouteCoordinates(routeId);
+      
+      setRoutes(prevRoutes => [...prevRoutes, newRoute]);
+    } catch (error) {
+      console.error('Error getting route coordinates:', error);
     }
   };
 
@@ -214,7 +223,11 @@ const App: React.FC = () => {
         events={events}
       />
       <div className="flex-1 relative">
-        <Map routes={routes} onRouteComplete={handleRouteComplete} />
+        <Map 
+          routes={routes} 
+          onNewRoute={handleNewRoute} 
+          onRouteComplete={handleRouteComplete}
+        />
       </div>
       <Chat messages={messages} setMessages={setMessages} />
     </div>
