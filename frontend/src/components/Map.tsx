@@ -190,26 +190,13 @@ const Map: React.FC<MapProps> = ({ routes, onNewRoute, onRouteComplete }) => {
       route.waypoints.push({
         longitude: update.longitude,
         latitude: update.latitude,
-        timestamp: new Date().toISOString()
+        timestamp: Date.now()
       });
 
-      // Check if route is near completion
-      if (newPosition[0] === route.end_point[0] && 
-          newPosition[1] === route.end_point[1] && 
-          route.status !== 'completed') {
-        route.status = 'completed';
-        
-        // Call API to update metrics
-        cleanupRoute(route.id);
-        onRouteComplete(route.id);
-        return;
-      }
-      
-      // Only update marker position if route is not completed
       if (route.status !== 'completed') {
         // Create new marker if it doesn't exist
         if (!markerStatesRef.current[update.route_id]) {
-          const lastWaypoint = route.waypoints[route.waypoints.length - 1];
+          const lastWaypoint = route.waypoints[route.waypoints.length - 1] || route.start_point;
           const marker = createDeliveryMarker(route, lastWaypoint, map.current!);
           markerStatesRef.current[update.route_id] = {
             marker,
@@ -219,6 +206,32 @@ const Map: React.FC<MapProps> = ({ routes, onNewRoute, onRouteComplete }) => {
           // Update target position instead of directly setting marker position
           markerStatesRef.current[update.route_id].targetPosition = newPosition;
         }
+      }
+
+      // Check if route is near completion
+      if (newPosition[0] === route.end_point[0] && 
+          newPosition[1] === route.end_point[1] && 
+          route.status !== 'completed') {
+        route.status = 'completed';
+        
+        // Call API to update metrics
+        fetch('http://localhost:8000/api/delivery-complete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            routeId: route.id,
+            completionTime: Date.now() - route.waypoints[0].timestamp
+          })
+        })
+        .then(() => {
+          cleanupRoute(route.id);
+          onRouteComplete(route.id);
+        })
+        .catch(console.error);
+
+        return;
       }
     };
 

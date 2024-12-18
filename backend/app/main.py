@@ -41,7 +41,11 @@ app.add_middleware(
 )
 
 load_dotenv()
-
+completed_deliveries = 15
+total_delivery_time = 1000000
+delivery_count = 15
+awaiting_pickup = 20
+avg_time = "0"
 # Data models
 class Delivery(BaseModel):
     id: str
@@ -175,3 +179,48 @@ async def route_updates_websocket(websocket: WebSocket):
         logger.error(f"Error in route updates websocket: {e}")
 
 
+
+class DeliveryComplete(BaseModel):
+    routeId: str
+    completionTime: int
+
+@app.post("/api/delivery-complete")
+async def delivery_complete(request: DeliveryComplete):
+    global completed_deliveries, total_delivery_time, delivery_count, routes, awaiting_pickup
+    
+    try:
+        # Update metrics
+        completed_deliveries += 1
+        total_delivery_time += request.completionTime
+        delivery_count += 1
+        if awaiting_pickup > 0:
+            awaiting_pickup -= 1
+            
+        # Set route to completed
+        for route in routes:
+            if route.id == request.routeId:
+                route.status = 'completed'
+                break
+                
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Error processing delivery completion: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@app.get("/api/metrics")
+async def get_metrics():
+    global completed_deliveries, total_delivery_time, delivery_count, avg_time, awaiting_pickup
+    
+    # Calculate metrics
+    packages_retrieved = completed_deliveries
+    
+    # Calculate average delivery time
+    if delivery_count > 0:
+        avg_minutes = ((total_delivery_time / delivery_count) / 60000)*100 # Convert ms to minutes
+        avg_time = f"{int(avg_minutes)}"  # Convert to integer string
+    return {
+        "packages_retrieved": packages_retrieved,
+        "awaiting_pickup": awaiting_pickup,
+        "average_response_time": avg_time
+    }

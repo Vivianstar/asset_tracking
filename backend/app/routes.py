@@ -13,12 +13,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 # Global metrics variables
-completed_deliveries = 15
-total_delivery_time = 1000000
-delivery_count = 15
-awaiting_pickup = 20
-avg_time = "0"
-route_data = None
+
 
 # Data models
 class RoutePoint(BaseModel):
@@ -63,22 +58,6 @@ class RouteDataManager:
 # Initialize the route data manager
 route_manager = RouteDataManager()
 
-@router.get("/metrics")
-async def get_metrics():
-    global completed_deliveries, total_delivery_time, delivery_count, avg_time, awaiting_pickup
-    
-    # Calculate metrics
-    packages_retrieved = completed_deliveries
-    
-    # Calculate average delivery time
-    if delivery_count > 0:
-        avg_minutes = ((total_delivery_time / delivery_count) / 60000)*100 # Convert ms to minutes
-        avg_time = f"{int(avg_minutes)}"  # Convert to integer string
-    return {
-        "packages_retrieved": packages_retrieved,
-        "awaiting_pickup": awaiting_pickup,
-        "average_response_time": avg_time
-    }
 
 @router.get("/route/{route_id}/coordinates")
 async def get_route_coordinates(route_id: str):
@@ -110,7 +89,7 @@ async def get_route_coordinates(route_id: str):
         return {
             "id": route_id,
             "coordinates": coordinates,
-            "color": random.choice(colors),
+            "color": colors[random.randint(0, len(colors)-1)],
             "waypoints": [],
             "status": "in_progress",
             "start_point": coordinates[0],
