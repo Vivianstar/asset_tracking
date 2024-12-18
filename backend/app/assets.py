@@ -13,7 +13,6 @@ colors = [
     "#4ECDC4",  # Turquoise
     "#45B7D1",  # Ocean blue
     "#96CEB4",  # Sage green
-    "#FFEEAD",  # Cream yellow
     "#D4A5A5",  # Dusty rose
     "#9B786F",  # Warm taupe
     "#A8E6CE",  # Mint green

@@ -368,9 +368,24 @@ const Map: React.FC<MapProps> = ({ routes, onNewRoute, onRouteComplete }) => {
         return null;
       }
 
+      // Validate and clean color value
+      let validColor = route.color;
+      
+      // If color contains multiple hex codes, take the first one
+      if (route.color.includes('#', 1)) {
+        validColor = route.color.split('#')[1];
+        validColor = '#' + validColor;
+      }
+      
+      // Ensure it's a valid 6-digit hex color
+      if (!/^#[0-9A-F]{6}$/i.test(validColor)) {
+        console.warn(`Invalid color format for route ${route.id}, defaulting to #000000`);
+        validColor = '#000000';
+      }
+
       const el = document.createElement('div');
       el.className = 'delivery-vehicle';
-      el.style.backgroundColor = route.color;
+      el.style.backgroundColor = validColor;
       el.style.width = '12px';
       el.style.height = '12px';
       el.style.borderRadius = '50%';
@@ -381,7 +396,7 @@ const Map: React.FC<MapProps> = ({ routes, onNewRoute, onRouteComplete }) => {
         closeButton: false,
         closeOnClick: false,
       }).setHTML(`
-        <div style="background-color: ${route.color}CC; padding: 10px; border-radius: 18px;">
+        <div style="background-color: ${validColor}CC; padding: 10px; border-radius: 18px;">
           <div style="color: white; font-size: 0.75rem;">Route ${String(route.id).substring(0,2)}</div>
         </div>
       `);

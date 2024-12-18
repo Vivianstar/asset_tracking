@@ -217,8 +217,8 @@ async def get_metrics():
     
     # Calculate average delivery time
     if delivery_count > 0:
-        avg_minutes = ((total_delivery_time / delivery_count) / 60000)*100 # Convert ms to minutes
-        avg_time = f"{int(avg_minutes)}"  # Convert to integer string
+        avg_minutes = int((total_delivery_time / delivery_count) / 60000 * 100)  # Convert ms to minutes and round to integer
+        avg_time = f"{avg_minutes}"  # Convert to integer string
     return {
         "packages_retrieved": packages_retrieved,
         "awaiting_pickup": awaiting_pickup,

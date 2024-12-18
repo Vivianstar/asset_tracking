@@ -29,9 +29,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   const prevTimeRef = useRef(parseFloat(averageResponseTime));
 
   useEffect(() => {
-    prevPackagesRef.current = packagesRetrieved;
-    prevAwaitingRef.current = awaitingPickup;
-    prevTimeRef.current = parseFloat(averageResponseTime);
+    prevPackagesRef.current = packagesRetrieved || 0;
+    prevAwaitingRef.current = awaitingPickup || 0;
+    prevTimeRef.current = parseFloat(averageResponseTime || '0');
   }, [packagesRetrieved, awaitingPickup, averageResponseTime]);
 
   const getEventIcon = (type: string) => {
@@ -93,14 +93,13 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <p className="text-7xl mt-4 text-white seven-segment transform scale-y-110">
               <CountUp 
-                start={prevTimeRef.current}
-                end={parseFloat(averageResponseTime || '0')}
-                decimals={1}
+                start={Math.floor(prevTimeRef.current || 0)}
+                end={Math.floor(parseFloat(averageResponseTime || '0'))}
                 duration={1.5}
                 suffix=" mins"
                 useEasing={true}
                 preserveValue={true}
-                decimal="."
+                decimals={0}
               />
             </p>
           </div>
